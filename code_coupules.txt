@@ -1,0 +1,212 @@
+install. packages ("copula")
+library (copula)
+install. packages ("fCopulae")
+library (fCopulae)
+install. packages ("QRM")
+library (QRM)
+install. packages("LambertW")
+library (LambertW)
+install. packages("limma")
+library("limma")
+install. packages("timeSeries")
+library(timeSeries)
+##Importation des bases de données
+am=read.csv ("AMZN.csv», sep = ",")
+micro=read.csv ("MSFT.csv», sep = ",")
+##fonction de calcul des log-rendements
+logrendement=function(v){
+n= length(v)
+u=vector ()
+for (i in 1: n)
+{if (i==1)
+u[i]=0
+else
+u[i]=log(v[i]/v[i-1])}
+Return(u)}
+##Calcul des rendements
+v=logrendement (am [,5]) #rendements de l'action Amazon
+v1=cbind (am$Date, as. numeric(v))
+u=logrendement (micro [,5]) # rendements de l'action Microsoft
+u1=cbind (micro$Date, as. numeric(u))
+val. ln=cbind (as. numeric(v1[,2]), as. numeric(u1[,2]));
+Val. Ln <- as. matrix (val.ln)
+n <-nrow (val. ln)
+head (val.ln)
+## statistiques descriptive #
+summary (val.ln)
+#Ecart type
+sd(v)
+sd(u)
+#Asymétrie
+Skewness (v)
+Skewness (u)
+## tracé du graphe des log-rendements
+v.ts=ts(v1[,2], start = c (2015,12,17), end = c (2020,12,16), frequency = 365)
+Plot (main="les log-rendements du titre Amazon’’, v.ts, xlab="temps », ylab="log-rendement")
+u.ts=ts(u1[,2], start = c (2015,12,17), end = c(2020,12,16),frequency = 365)
+Plot.ts(main="les log-rendement du titre Microsoft », u.ts,xlab="temps», ylab="log-rendement")
+##qqplot et histogrammes de vérification de normalité
+#qqplot
+par (mfrow=c (1,2))
+qqnorm(as.numeric(v1[,2]), main="qq plot normal de Amazon") #Amazon
+qqline(as.numeric(v1[,2]))
+qqnorm(as.numeric(u1[,2]), main="qq plot normal de Microsoft») #Microsoft
+qqline(as.numeric(u1[,2]))
+qqt(as.numeric(v1[,2]), main="qq plot student de Amazon") #Amazon
+qqline(as.numeric(v1[,2]))
+qqt(as.numeric(u1[,2]), main="qq plot student de Microsoft») #Microsoft
+qqline(as.numeric(u1[,2]))
+#histogrammes
+par (mfrow=c (1,2))
+hist(as.numeric(v1[,2]), main="Histogramme d'Amazon», xlab="log rendement», prob=T, breaks=21)
+curve (dnorm (x, mean=mean(as.numeric(v1[,2])), sd=sd(as.numeric(v1[,2]))), add=T)
+lines(density(as.numeric(v1[,2])))
+hist(as.numeric(u1[,2]), main="Histogramme de Microsoft», xlab ="log-rendement",prob=T, breaks=21)
+curve (dnorm (x, mean=mean(as.numeric(u1[,2])), sd=sd(as.numeric(u1[,2]))), add=T)
+lines(density(as.numeric(u1[,2])))
+##test de normalité des log-rendements
+jarqueberra.test(u)
+jarqueberra.test(v)
+##test de student
+ks.test.t(u)
+ks.test.t(v)
+# (1) Estimation des marginaux, compte tenu du type de données que nous avons testé avec le t-Student
+### Marginales t-Student ###
+### Marginal t-Student - ajustement de la distribution t de Student ####
+mod.t1 <- fitdistr (val.ln[,1], "t") #ajustement Amazon
+mod.t1
+mod.t2 <- fitdistr (val.ln[,2], "t") #Ajustement Microsoft
+mod.t2
+#### Calcul des pseudo observations ####
+# Transformation des variables originales en variables uniformes
+# à l'aide de la fonction de distribution empirique corrigée (n / n + 1) * F_n
+Udata <- pobs (val.ln )
+Udata
+# (0) Définition des paramètres initiaux
+# Calcul des corrélations estimées par la méthode classique (correlation linéaire)
+# quels sont les paramètres initiaux de la copule gaussienne et de la copule t-Student
+ro <-cor (val.ln)
+ro <-ro [1,2]
+ro
+# Paramètres initiaux - Copule de Gumbel #
+# Méthode des moments basée sur le tau de Kendall #
+rotau <-Kendall (val.ln)
+rotau <-rotau [1,2]
+rotau
+ParGum <-1 / (1-rotau)
+ParGum
+############### ###########################
+# Paramètres initiaux - Clayton Copula #
+# Méthode des Moments #
+ParClay <- (2 * rotau) / (1-rotau)
+ParClay
+# (1) Je définis l'objet copule
+##########################
+# Ajustement – Copule gaussienne#
+norm.cop <- normalCopula (ro, dim = 2, dispstr = "un")
+norm.cop #Informations sur l'objet
+NormCopEst<-fitCopula (norm.cop, Udata, method="mpl")
+NormCopEst
+LogLik (NormCopEst) #Valeur de la fonction de vraisemblance à l’optimum
+AIC(NormCopEst) #Valeur de AIC
+BIC(NormCopEst) #Valeur de BIC
+############################
+# Ajustement - Copule t-Student #
+tCop <- tCopula (ro, dim = 2, dispstr="un", df.fixed=FALSE)
+tCop
+TCopEst<-fitCopula (tCop, Udata, method="mpl", estimât. variance=TRUE)
+TCopEst
+logLik (TCopEst)
+AIC(TCopEst)
+BIC(TCopEst)
+##########################
+# Ajustement - Copule de Gumbel #
+gumb.cop0 <- gumbelCopula (ParGum, dim =2)
+gumb.cop0
+gumbCopEst<-fitCopula (gumb.cop0, Udata, method="mpl")
+gumbCopEst
+logLik(gumbCopEst)
+AIC (gumbCopEst)
+BIC (gumbCopEst)
+##############################
+# Ajustement - Copule de Clayton #
+clay.cop0<- claytonCopula (param =ParClay, dim = 2)
+clay.cop0
+ClayCopEst<-fitCopula (clay. cop0, Udata, method="mpl")
+ClayCopEst
+logLik (ClayCopEst)
+AIC(ClayCopEst)
+BIC(ClayCopEst)
+############################
+# Ajustement - Copule de Frank (on part d'une valeur initiale aléatoire, puisque le calcul de l'estimateur de moment n'est pas direct)
+frank.cop0<-frankCopula (param = NA_real_, dim = 2)
+frank.cop0
+FrankCopEst<-fitCopula (frank.cop0, Udata, method="mpl")
+FrankCopEst
+logLik(FrankCopEst)
+AIC(FrankCopEst)
+BIC(FrankCopEst)
+### Nous estimons le risque en utilisant la simulation de Monte Carlo avec chaque copule et chaque marginal
+# (4) Simulation des U à partir de la copule estimée
+set.seed(123) # Définition d’une graine
+r<-100000 # Nombre total de valeurs à simuler
+############################
+# reglage - Copule gaussienne #
+norm.cop_est <- normalCopula (0.6941, dim = 2, dispstr = "un") # Les valeurs Rho.1 sont utilisées que j'ai estimées dans NormCopEst via fit.copula
+Sim_val.ln_normC<-rCopula(r,norm.cop_est) # Valeurs simulées
+############################
+# réglages - Copule t-Student #
+t.cop_est <- tCopula (0.6991, dim = 2, dispstr = "un", df=3.2237)
+Sim_val.ln_tC<-rCopula(r,t.cop_est) # Valeurs simulées
+##########################
+# réglage - Copule de Gumbel #
+gumb.cop_est<- gumbelCopula (1.896, dim =2)
+Sim_val.ln_gumbelcopula <- rCopula (r, gumb.cop_est)
+##############################
+# réglage - Copule de Clayton #
+clay.cop_est<- claytonCopula (1.576, dim = 2)
+Sim_val.ln_clayC<-rCopula (r,clay.cop_est) # Valeurs simulées
+############################
+# Réglage- Copule de Frank #
+frank.cop_est<- frankCopula (param = 5.664, dim = 2)
+Sim_val.ln_frankC<-rCopula(r,frank.cop_est) # Valeurs simulées
+# (5) Simulation des facteurs de risque et calcul des risques
+alfa<-c (0.95, 0.99,0.995)
+w <- cbind(0.5,0.5) #Poids de chaque risque
+#COPULE GAUSSIENNE#
+sim.val.ln1t <- qst (Sim_val.ln_normC [,1], mu=mod.t1$estimate[[1]], sd=mod.t1$estimate[[2]],mod.t1$estimate[[3]])
+sim.val.ln2t <- qst (Sim_val.ln_normC[,2], mu=mod.t2$estimate [[1]], sd=mod.t2$estimate[[2]],mod.t2$estimate[[3]])
+MC.data<-cbind (sim.val.ln1t, sim.val.ln2t)
+MC.Lsim <- -(MC.data%*%t(w))
+#VaR
+quantile (MC.Lsim, alfa)
+#COPULA t-STUDENT#
+sim.val.ln1t <- qst (Sim_val.ln_tC[,1],mu=mod.t1$estimate[[1]], sd=mod.t1$estimate[[2]],mod.t1$estimate[[3]])
+sim.val.ln2t <- qst (Sim_val.ln_tC[,2],mu=mod.t2$estimate[[1]], sd=mod.t2$estimate[[2]],mod.t2$estimate[[3]])
+MC.data<-cbind (sim.val.ln1t, sim.val.ln2t)
+MC.Lsim <- -(MC.data%*%t(w))
+#VaR
+Quantile (MC. Lsim, alfa)
+#COPULE de GUMBEL#
+sim.val.ln1t <- qst (Sim_val.ln_gumbelcopula [,1], mu=mod.t1$estimate [[1]], sd=mod.t1$estimate[[2]],mod.t1$estimate[[3]])
+sim.val.ln2t <- qst (Sim_val.ln_gumbelcopula [,2], mu=mod.t2$estimate [[1]], sd=mod.t2$estimate[[2]],mod.t2$estimate[[3]])
+MC.data<-cbind (sim.val.ln1t, sim.val.ln2t)
+MC.Lsim <- -(MC.data%*%t(w))
+#VaR
+Quantile (MC.Lsim, alfa)
+#COPULA CLAYTON#
+### Marginales t-Student ###
+sim.val.ln1t <- qst (Sim_val.ln_clayC [,1], mu=mod.t1$estimate [[1]], sd=mod.t1$estimate [[2]], mod.t1$estimate [[3]])
+sim.val.ln2t <- qst (Sim_val.ln_clayC [,2], mu=mod.t2$estimate [[1]], sd=mod.t2$estimate [[2]], mod.t2$estimate [[3]])
+MC.data<-cbind (sim.val.ln1t, sim.val.ln2t)
+MC.Lsim <- -(MC.data%*%t(w))
+#VaR
+Quantile (MC. Lsim, alfa)
+#COPULA FRANK#
+### Marginales t-Student ###
+sim.val.ln1t <- qst (Sim_val.ln_frankC[,1], mu=mod.t1$estimate[[1]], sd=mod.t1$estimate[[2]],mod.t1$estimate[[3]])
+sim.val.ln2t <- qst (Sim_val.ln_frankC[,2], mu=mod.t2$estimate[[1]], sd=mod.t2$estimate[[2]],mod.t2$estimate[[3]])
+MC.data<-cbind (sim.val.ln1t, sim.val.ln2t)
+MC.Lsim <- -(MC.data%*%t(w))
+#VaR
+quantile (MC.Lsim, alfa)
